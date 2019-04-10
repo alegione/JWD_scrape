@@ -1,0 +1,84 @@
+library(tidyverse)
+library(rvest)
+library(googlesheets)
+library(stringr)
+
+FVASdatabase <- gs_title(x = "FVAS_Staff")
+
+FVAS_ID <- "https://www.findanexpert.unimelb.edu.au/display/org6277"
+Ag_ID <- "https://www.findanexpert.unimelb.edu.au/display/org6398"
+VetBS <- "https://www.findanexpert.unimelb.edu.au/display/org6400"
+VetCS <- "https://www.findanexpert.unimelb.edu.au/display/org6399"
+VetHospital <- "https://www.findanexpert.unimelb.edu.au/display/org184"
+
+#https://www.findanexpert.unimelb.edu.au/display/person412220
+
+html <- read_html(x = orgID)
+
+staffid <- html %>%
+  html_nodes(css = ".property-list")
+
+remove(dat)
+dat <- rbind(c("Name", "Link", "Department", "Role", "PhD", "Year"))
+
+
+LinkList <- paste0("https://www.findanexpert.unimelb.edu.au", html_nodes(x = html, css = "li") %>%
+         html_nodes("a") %>%
+         tail(-7) %>%
+         head(-4) %>%
+         html_attr("href")
+       )
+
+NameList <- html_nodes(x = html, css = "li") %>% html_nodes("a") %>% tail(-7) %>% head(-4) %>% html_text() %>% str_split(pattern = " ", n = 2, simplify = TRUE)
+
+TitleList <- NameList[,1]
+NameList <- NameList[,2]
+
+
+Department <- html_nodes(x = html, css = "h1.fn") %>%
+  html_text %>%
+  str_replace_all(pattern = "\n", replacement = " ") %>%
+  str_replace_all(pattern = "[\\^]", replacement = " ") %>%
+  str_replace_all(pattern = "\"", replacement = " ") %>%
+  str_replace_all(pattern = "\\s+", replacement = " ") %>%
+  str_trim(side = "both")
+
+Position <- html_nodes(x = html, css = "li") %>% tail(-7) %>% head(-6) %>% html_text() %>% str_split(pattern = ",", n=2, simplify = TRUE)
+Position <- Position[,2] %>% str_replace_all(pattern = "\n", replacement = "") %>% str_trim(side = "both")
+
+remove(PhDdetails)
+PhDdetails <- data.frame(Date=as.Date(character()),
+                               File=character(), 
+                               User=character(), 
+                               stringsAsFactors=FALSE)
+for (link in LinkList) {
+
+  personhtml <- read_html(link)
+  print(link)
+  
+  hasPhD <- html_nodes(x = personhtml, xpath = "//h3[contains(., 'Education and training')]/following-sibling::ul") %>% html_nodes(css = "li") %>% sub(pattern = "Ph.D", replacement = "PhD") %>% grep(pattern = "PhD", ignore.case = TRUE, value = TRUE) %>% grepl(pattern = "PhD", ignore.case = TRUE)
+  
+  print(hasPhD)
+  if (length(hasPhD) > 0) {
+    if (hasPhD == TRUE) {
+      PhDYear <- as_xml_document(html_nodes(x = personhtml, xpath = "//h3[contains(., 'Education and training')]/following-sibling::ul") %>% html_nodes(css = "li") %>% sub(pattern = "Ph.D", replacement = "PhD") %>% grep(pattern = "PhD", ignore.case = TRUE, value = TRUE)) %>% html_text() %>%
+        str_replace_all(pattern = "\n", replacement = " ") %>%
+        str_replace_all(pattern = "[\\^]", replacement = " ") %>%
+        str_replace_all(pattern = "\"", replacement = " ") %>%
+        str_replace_all(pattern = "\\s+", replacement = " ") %>%
+        str_replace_all(pattern = "\\.", replacement = "") %>%
+        str_replace_all(pattern = ",", replacement = "") %>%
+        str_trim(side = "both") %>%
+        str_split(pattern = " ", simplify = TRUE)
+      
+      PhDYear<- PhDYear[,length(PhDYear)]
+    } else {
+      PhDYear <- NA
+    }
+  } else {
+    PhDYear <- NA
+  }
+  PhDdetails <- rbind(PhDdetails, c(hasPhD, PhDYear))
+  Sys.sleep(10)
+}
+dat <- cbind(TitleList, NameList, Position, Department, LinkList)
