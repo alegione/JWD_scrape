@@ -5,6 +5,8 @@ library(stringr)
 
 JWDdatabase <- gs_title(x = "JWD_articles")
 
+
+
 html <- read_html(x = "https://www.jwildlifedis.org/toc/jwdi/55/1")
 
 
@@ -23,7 +25,7 @@ for (i in seq(issue)){
   AuthorListConcat <- AuthorList %>% paste0(collapse = ", ")
   Link <- paste0("https://www.jwildlifedis.org", issue[i] %>% html_nodes(css = ".ref") %>% html_attr(name = "href") %>% head(1))
   if (length(AuthorList)>2) {
-    TweetAuthor <- AuthorList %>% head(1) %>% paste("et al.", sep = ", ")
+    TweetAuthor <- AuthorList %>% head(1) %>% paste("et al", sep = ", ")
   } else if (length(AuthorList)>1) {
     TweetAuthor <- AuthorList %>% paste0(collapse = " & ")
   } else {
